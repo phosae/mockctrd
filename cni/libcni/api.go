@@ -418,7 +418,9 @@ func (c *CNIConfig) addNetwork(ctx context.Context, name, cniVersion string, net
 	CapabilityArgs: %v
 	`, net.Network.Type, rt.ContainerID, rt.NetNS, rt.IfName, rt.Args, rt.CapabilityArgs)
 	b, _ := json.Marshal(newConf)
-	fmt.Println("configToCNI", string(b))
+	var m = map[string]interface{}{}
+	json.Unmarshal(newConf.Bytes, &m)
+	fmt.Println("configToCNI", string(b), "Bytes-JSON", m)
 
 	return invoke.ExecPluginWithResult(ctx, pluginPath, newConf.Bytes, c.args("ADD", rt), c.exec)
 }
