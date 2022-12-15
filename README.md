@@ -37,5 +37,7 @@ docker run --rm -v /opt/cni/bin:/out -e CNI_BIN_DST=/out zengxu/cni-copier:22121
 ``
 
 ```
-CNI_BIN=/opt/cni/bin CNI_CONF=/etc/cni/net.d/ ./mockctrd
+DRYRUN=true CNI_NETNS=/var/run/zenx ./mockctrd
 ```
+- if DRYRUN set to false, cmdDel will not been called when exit
+- u can use CNI_NETNS env to set netns

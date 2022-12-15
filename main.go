@@ -49,37 +49,46 @@ const (
 	// attaches to
 	networkAttachCount = 2
 )
+
 /*
 cat /etc/cni/net.d/10-macvlan.conflist
-{
-  "cniVersion": "0.3.1",
-  "name": "debugcni",
-  "plugins": [
-  {
-    "type": "macvlan",
-    "name": "macvlan",
-    "master": "enp0s1",
-    "mode": "bridge",
-    "ipam":{
-        "type": "host-local",
-        "ranges": [
-          [{"subnet": "192.168.64.0/24"}]
-        ],
-        "gateway": "192.168.64.1",
-        "routes": [{"dst": "0.0.0.0/0"}],
-        "dataDir": "/tmp/host-local"
-    }
-  },
-  {"type": "portmap", "snat": true, "capabilities": {"portMappings": true}}
-  ]
-}
+
+	{
+	  "cniVersion": "0.3.1",
+	  "name": "debugcni",
+	  "plugins": [
+	  {
+	    "type": "macvlan",
+	    "name": "macvlan",
+	    "master": "enp0s1",
+	    "mode": "bridge",
+	    "ipam":{
+	        "type": "host-local",
+	        "ranges": [
+	          [{"subnet": "192.168.64.0/24"}]
+	        ],
+	        "gateway": "192.168.64.1",
+	        "routes": [{"dst": "0.0.0.0/0"}],
+	        "dataDir": "/tmp/host-local"
+	    }
+	  },
+	  {"type": "portmap", "snat": true, "capabilities": {"portMappings": true}}
+	  ]
+	}
 */
 func main() {
-	conf := CniConfig{
-		NetworkPluginBinDir:     "/opt/cni/bin",
-		NetworkPluginConfDir:    "/etc/cni/net.d",
-		NetworkPluginMaxConfNum: 1,
-	}
+	var (
+		i         cni.CNI
+		err       error
+		netnspath string
+		dryrun    bool = true
+
+		conf = CniConfig{
+			NetworkPluginBinDir:     "/opt/cni/bin",
+			NetworkPluginConfDir:    "/etc/cni/net.d",
+			NetworkPluginMaxConfNum: 1,
+		}
+	)
 
 	if cnipath := os.Getenv("CNI_BIN"); cnipath != "" {
 		conf.NetworkPluginBinDir = cnipath
@@ -87,9 +96,12 @@ func main() {
 	if cniconf := os.Getenv("CNI_CONF"); cniconf != "" {
 		conf.NetworkPluginConfDir = cniconf
 	}
-
-	var i cni.CNI
-	var err error
+	if netnspath = os.Getenv("CNI_NETNS"); netnspath == "" {
+		netnspath = "/var/run/netns/zenx"
+	}
+	if os.Getenv("DRYRUN") == "false" {
+		dryrun = false
+	}
 
 	// Pod needs to attach to at least loopback network and a non host network,
 	// hence networkAttachCount is 2. If there are more network configs the
@@ -122,8 +134,8 @@ func main() {
 		},
 		Labels: map[string]string{},
 		Annotations: map[string]string{
-			"kubernetes.io/ingress-bandwidth": "500Mi",
-			"kubernetes.io/egress-bandwidth":  "1Gi",
+			"kubernetes.io/ingress-bandwidth": "200Mi",
+			"kubernetes.io/egress-bandwidth":  "100Mi",
 		},
 		Linux: &runtime.LinuxPodSandboxConfig{},
 	})
@@ -145,13 +157,15 @@ func main() {
 	defer cancel()
 
 	defer func() {
-		err = i.Remove(ctx, "sanbox_id", "/var/run/netns/zenx", cniopts...)
-		if err != nil {
-			panic(err)
+		if dryrun {
+			err = i.Remove(ctx, "sanbox_id", netnspath, cniopts...)
+			if err != nil {
+				panic(err)
+			}
 		}
 	}()
 
-	ret, err := i.Setup(ctx, "sanbox_id", "/var/run/netns/zenx", cniopts...)
+	ret, err := i.Setup(ctx, "sanbox_id", netnspath, cniopts...)
 	if err != nil {
 		panic(err)
 	}
