@@ -410,6 +410,15 @@ func (c *CNIConfig) addNetwork(ctx context.Context, name, cniVersion string, net
 	if err != nil {
 		return nil, err
 	}
+	fmt.Printf(`
+	addNetwork/%s
+	runtimeConfig:
+	containerID: %s, netNS: %s, ifName: %s,
+	args: %v, 
+	CapabilityArgs: %v
+	`, net.Network.Type, rt.ContainerID, rt.NetNS, rt.IfName, rt.Args, rt.CapabilityArgs)
+	b, _ := json.Marshal(newConf)
+	fmt.Println("configToCNI", string(b))
 
 	return invoke.ExecPluginWithResult(ctx, pluginPath, newConf.Bytes, c.args("ADD", rt), c.exec)
 }

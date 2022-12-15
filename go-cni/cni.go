@@ -160,6 +160,14 @@ func (c *libcni) Setup(ctx context.Context, id string, path string, opts ...Name
 	if err != nil {
 		return nil, err
 	}
+	fmt.Printf(`
+	network namespace and cni request args:
+	id: %s, 
+	path: %s,
+	capabilityArgs: %v,
+	args: %v
+
+	`, ns.id, ns.path, ns.capabilityArgs, ns.args)
 	result, err := c.attachNetworks(ctx, ns)
 	if err != nil {
 		return nil, err

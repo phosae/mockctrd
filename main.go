@@ -49,7 +49,31 @@ const (
 	// attaches to
 	networkAttachCount = 2
 )
-
+/*
+cat /etc/cni/net.d/10-macvlan.conflist
+{
+  "cniVersion": "0.3.1",
+  "name": "debugcni",
+  "plugins": [
+  {
+    "type": "macvlan",
+    "name": "macvlan",
+    "master": "enp0s1",
+    "mode": "bridge",
+    "ipam":{
+        "type": "host-local",
+        "ranges": [
+          [{"subnet": "192.168.64.0/24"}]
+        ],
+        "gateway": "192.168.64.1",
+        "routes": [{"dst": "0.0.0.0/0"}],
+        "dataDir": "/tmp/host-local"
+    }
+  },
+  {"type": "portmap", "snat": true, "capabilities": {"portMappings": true}}
+  ]
+}
+*/
 func main() {
 	conf := CniConfig{
 		NetworkPluginBinDir:     "/opt/cni/bin",
@@ -107,6 +131,9 @@ func main() {
 		panic(err)
 	}
 
+	// CNI_ARGS
+	// cniopts = append(cniopts, cni.WithArgs("IP", "192.168.64.211"))
+
 	err = i.Load([]cni.Opt{cni.WithLoNetwork, cni.WithDefaultConf}...)
 	if err != nil {
 		panic(err)
@@ -117,17 +144,19 @@ func main() {
 	time.Sleep(time.Nanosecond)
 	defer cancel()
 
+	defer func() {
+		err = i.Remove(ctx, "sanbox_id", "/var/run/netns/zenx", cniopts...)
+		if err != nil {
+			panic(err)
+		}
+	}()
+
 	ret, err := i.Setup(ctx, "sanbox_id", "/var/run/netns/zenx", cniopts...)
 	if err != nil {
 		panic(err)
 	}
 	b, _ := json.MarshalIndent(ret, "", "  ")
 	fmt.Println(string(b))
-
-	err = i.Remove(ctx, "sanbox_id", "/var/run/netns/zenx", cniopts...)
-	if err != nil {
-		panic(err)
-	}
 }
 
 // cniNamespaceOpts get CNI namespace options from sandbox config.
